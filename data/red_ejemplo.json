@@ -1,0 +1,11 @@
+{
+  "estaciones": [
+    "Estación Central",
+    "Plaza Norte",
+    "Terminal Sur"
+  ],
+  "rutas": [
+    { "origen": "Estación Central", "destino": "Plaza Norte", "peso": 8 },
+    { "origen": "Plaza Norte", "destino": "Terminal Sur", "peso": 10 }
+  ]
+}
