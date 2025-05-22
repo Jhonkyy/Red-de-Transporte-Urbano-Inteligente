@@ -32,3 +32,7 @@ class Grafo:
 
     def obtener_vecinos(self, estacion):
         return self.adjlist[estacion]
+
+    def encontrar_estacion(self, nombre: str) -> Estacion:
+        return self.nombre_a_estacion[nombre]
+
