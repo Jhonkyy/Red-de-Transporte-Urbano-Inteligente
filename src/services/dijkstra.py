@@ -21,8 +21,8 @@ def camino_corto(grafo: Grafo, inicio: Estacion)-> dict:
             break
 
         for vecino in grafo.obtener_vecinos(current):
-            peso = vecino[1]
-            nodo_vecino = vecino[0]
+            peso = vecino.peso
+            nodo_vecino = vecino.dest
             tentativa = distances[current] + peso
 
             if tentativa < distances[nodo_vecino] and nodo_vecino not in visitados:
