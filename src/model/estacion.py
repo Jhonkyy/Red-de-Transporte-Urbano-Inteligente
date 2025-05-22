@@ -1,4 +1,4 @@
 
 class Estacion:
-    def __init__(self, estacion: str):
-        self.estacion = estacion
+    def __init__(self, nombre: str):
+        self.nombre = nombre
