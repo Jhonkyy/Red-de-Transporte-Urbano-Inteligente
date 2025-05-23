@@ -2,9 +2,10 @@ from src.model.estacion import Estacion
 from src.model.grafo import Grafo
 
 
-def camino_corto(grafo: Grafo, inicio: Estacion)-> dict:
+def camino_corto(grafo: Grafo, inicio: Estacion, destino: Estacion):
     visitados = set()
     distances = {node: float("inf") for node in grafo.obtener_estaciones()}
+    anterior = {node: None for node in grafo.obtener_estaciones()}
     distances[inicio] = 0
 
     while len(visitados) != len(grafo.obtener_estaciones()):
@@ -27,7 +28,16 @@ def camino_corto(grafo: Grafo, inicio: Estacion)-> dict:
 
             if tentativa < distances[nodo_vecino] and nodo_vecino not in visitados:
                 distances[nodo_vecino] = tentativa
+                anterior[nodo_vecino] = current
 
         visitados.add(current)
 
-    return distances
+    # Reconstruir el camino óptimo
+    camino = []
+    actual = destino
+    while actual is not None:
+        camino.insert(0, actual)
+        actual = anterior[actual]
+    if distances[destino] == float("inf"):
+        return None, float("inf")  # No hay camino
+    return camino, distances[destino]
