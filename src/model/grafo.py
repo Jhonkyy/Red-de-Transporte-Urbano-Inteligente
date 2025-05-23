@@ -36,3 +36,23 @@ class Grafo:
     def encontrar_estacion(self, nombre: str) -> Estacion:
         return self.nombre_a_estacion[nombre]
 
+    def eliminar_estacion(self, estacion: Estacion):
+        # Elimina la estación y todas las rutas asociadas
+        if estacion not in self.adjlist:
+            raise Exception(f"La estación {estacion} no existe en el grafo")
+        # Elimina rutas que llegan a esta estación
+        for rutas in self.adjlist.values():
+            rutas[:] = [ruta for ruta in rutas if ruta.dest != estacion]
+        # Elimina la estación
+        del self.adjlist[estacion]
+        del self.nombre_a_estacion[estacion.nombre]
+
+    def eliminar_ruta(self, ruta: Ruta):
+        # Elimina una ruta específica
+        if ruta.origen not in self.adjlist:
+            raise Exception(f"No existe la estación de origen {ruta.origen}")
+        try:
+            self.adjlist[ruta.origen].remove(ruta)
+        except ValueError:
+            raise Exception("La ruta no existe en el grafo")
+
