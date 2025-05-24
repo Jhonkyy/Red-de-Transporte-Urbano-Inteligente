@@ -1,20 +1,30 @@
 from src.model.grafo import Grafo
 from src.services.dijkstra import camino_corto
+from src.model.ruta import Ruta
 
 def sugerir_conexiones(grafo: Grafo, presupuesto: float):
+    """
+    Sugiere nuevas conexiones directas entre pares de estaciones donde el tiempo actual excede el presupuesto.
+    Solo sugiere si la conexión directa reduciría el tiempo promedio entre estaciones.
+    Retorna una lista de tuplas (origen, destino, tiempo_actual).
+    """
     sugerencias = []
     estaciones = grafo.obtener_estaciones()
     for i, origen in enumerate(estaciones):
-        for destino in estaciones[i+1:]:
+        for destino in estaciones:
+            if origen == destino:
+                continue
             # Verifica si ya existe una ruta directa
-            if not any(ruta.dest == destino for ruta in grafo.obtener_vecinos(origen)):
-                camino, tiempo_actual = camino_corto(grafo, origen, destino)
-                # Si el tiempo actual es mayor que el presupuesto, sugerir conexión directa
-                if tiempo_actual > presupuesto:
+            if any(ruta.dest == destino for ruta in grafo.obtener_vecinos(origen)):
+                continue
+            camino, tiempo_actual = camino_corto(grafo, origen, destino)
+            if tiempo_actual > presupuesto:
+                # Simula agregar una conexión directa con peso igual al presupuesto
+                grafo.añadir_ruta(Ruta(origen, destino, presupuesto))
+                nuevo_camino, tiempo_nuevo = camino_corto(grafo, origen, destino)
+                # Solo sugiere si el tiempo mejora
+                if tiempo_nuevo < tiempo_actual:
                     sugerencias.append((origen, destino, tiempo_actual))
-            # También verifica en sentido inverso
-            if not any(ruta.dest == origen for ruta in grafo.obtener_vecinos(destino)):
-                camino, tiempo_actual = camino_corto(grafo, destino, origen)
-                if tiempo_actual > presupuesto:
-                    sugerencias.append((destino, origen, tiempo_actual))
+                # Quita la ruta simulada
+                grafo.eliminar_ruta(Ruta(origen, destino, presupuesto))
     return sugerencias

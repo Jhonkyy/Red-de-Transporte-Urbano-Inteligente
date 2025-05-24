@@ -1,6 +1,9 @@
 from src.model.grafo import Grafo
 
 def _alcanzables_desde(grafo: Grafo, inicio):
+    """
+    Retorna el conjunto de estaciones alcanzables desde 'inicio' usando DFS.
+    """
     visitados = set()
     stack = [inicio]
     while stack:
@@ -12,6 +15,10 @@ def _alcanzables_desde(grafo: Grafo, inicio):
     return visitados
 
 def es_fuertemente_conexo(grafo: Grafo) -> bool:
+    """
+    Determina si el grafo es fuertemente conexo.
+    Retorna True si desde cualquier estación se puede llegar a cualquier otra.
+    """
     estaciones = grafo.obtener_estaciones()
     for estacion in estaciones:
         alcanzados = _alcanzables_desde(grafo, estacion)

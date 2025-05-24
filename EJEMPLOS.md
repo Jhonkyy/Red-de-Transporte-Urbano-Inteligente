@@ -1,5 +1,7 @@
 # Ejemplos de uso y salidas
 
+Este documento muestra ejemplos claros y salidas esperadas para todas las funcionalidades principales del sistema de Red de Transporte Urbano Inteligente.
+
 ## Ruta más corta entre dos estaciones
 
 ```python
@@ -48,6 +50,21 @@ print("Nueva ruta más corta tras congestión:", [e.nombre for e in camino], "Ti
 Salida esperada:
 ```
 Nueva ruta más corta tras congestión: ['Estacion Central', 'Plaza Norte', 'Terminal Sur'] Tiempo: 30
+```
+
+## Simular congestión en varias rutas
+
+```python
+from src.services.actualizacion import simular_congestion
+rutas_afectadas = simular_congestion(grafo, porcentaje=0.5)
+for origen, destino, antes, despues in rutas_afectadas:
+    print(f"Ruta {origen} -> {destino}: {antes} min → {despues} min")
+```
+Salida esperada (ejemplo):
+```
+Ruta Estacion Central -> Plaza Norte: 8 min → 13.2 min
+Ruta Intercambiador -> Parque Central: 4 min → 7.1 min
+...
 ```
 
 ## Sugerir nuevas conexiones

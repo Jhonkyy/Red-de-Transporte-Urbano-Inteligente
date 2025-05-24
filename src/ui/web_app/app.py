@@ -7,9 +7,13 @@ from src.model.grafo import Grafo
 from src.model.estacion import Estacion
 from src.model.ruta import Ruta
 from src.services.dijkstra import camino_corto
+from src.services.actualizacion import simular_congestion
 import heapq
 
 app = Flask(__name__)
+
+# --- GRAFO GLOBAL PARA MANTENER EL ESTADO ENTRE PETICIONES ---
+grafo_global = None
 
 def cargar_grafo():
     grafo = Grafo()
@@ -28,6 +32,16 @@ def cargar_grafo():
         grafo.añadir_ruta(ruta_obj)
     return grafo
 
+def get_grafo():
+    global grafo_global
+    if grafo_global is None:
+        grafo_global = cargar_grafo()
+    return grafo_global
+
+def reset_grafo():
+    global grafo_global
+    grafo_global = cargar_grafo()
+
 def grafo_a_networkx(grafo: Grafo):
     G = nx.DiGraph()
     for estacion in grafo.obtener_estaciones():
@@ -39,7 +53,7 @@ def grafo_a_networkx(grafo: Grafo):
 
 @app.route("/", methods=["GET", "POST"])
 def index():
-    grafo = cargar_grafo()
+    grafo = get_grafo()
     estaciones = [e.nombre for e in grafo.obtener_estaciones()]
     rutas = []
     for estacion in grafo.obtener_estaciones():
@@ -54,17 +68,24 @@ def index():
     tiempo = None
     origen_sel = None
     destino_sel = None
+    rutas_afectadas = None
 
     if request.method == "POST":
-        origen_sel = request.form.get("origen")
-        destino_sel = request.form.get("destino")
-        if origen_sel and destino_sel and origen_sel != destino_sel:
-            origen_obj = grafo.encontrar_estacion(origen_sel)
-            destino_obj = grafo.encontrar_estacion(destino_sel)
-            camino, tiempo = camino_corto(grafo, origen_obj, destino_obj)
-            if camino is None:
-                camino = []
-                tiempo = None
+        if "simular_congestion" in request.form:
+            rutas_afectadas = simular_congestion(grafo, porcentaje=0.5)
+        elif "reset" in request.form:
+            reset_grafo()
+            grafo = get_grafo()
+        else:
+            origen_sel = request.form.get("origen")
+            destino_sel = request.form.get("destino")
+            if origen_sel and destino_sel and origen_sel != destino_sel:
+                origen_obj = grafo.encontrar_estacion(origen_sel)
+                destino_obj = grafo.encontrar_estacion(destino_sel)
+                camino, tiempo = camino_corto(grafo, origen_obj, destino_obj)
+                if camino is None:
+                    camino = []
+                    tiempo = None
 
     html = """
     <html>
@@ -187,7 +208,7 @@ def index():
             </nav>
             <h1>Visualización de la Red de Transporte Urbano</h1>
             <div class="form-section">
-                <form method="post">
+                <form method="post" style="display:inline;">
                     <label for="origen">Estación origen:</label>
                     <select name="origen" id="origen" required>
                         <option value="">Seleccione</option>
@@ -204,7 +225,23 @@ def index():
                     </select>
                     <button type="submit">Mostrar camino más corto</button>
                 </form>
+                <form method="post" style="display:inline;">
+                    <button type="submit" name="simular_congestion" value="1" style="background:#e67e22; color:#fff; margin-left:20px;">Simular congestión</button>
+                </form>
+                <form method="post" style="display:inline;">
+                    <button type="submit" name="reset" value="1" style="background:#c0392b; color:#fff; margin-left:20px;">Restablecer red</button>
+                </form>
             </div>
+            {% if rutas_afectadas %}
+                <div class="shortest-path" style="background:#fffbe6; border-left:5px solid #e67e22;">
+                    <b>Rutas afectadas por congestión:</b>
+                    <ul>
+                    {% for origen, destino, antes, despues in rutas_afectadas %}
+                        <li>Ruta {{ origen }} → {{ destino }}: {{ antes }} min → <b>{{ despues }} min</b></li>
+                    {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
             {% if camino and tiempo is not none %}
                 <div class="shortest-path">
                     <b>Camino más corto:</b>
@@ -252,7 +289,8 @@ def index():
         camino=camino_nombres,
         tiempo=tiempo,
         origen_sel=origen_sel,
-        destino_sel=destino_sel
+        destino_sel=destino_sel,
+        rutas_afectadas=rutas_afectadas
     )
 
 @app.route("/ayuda")

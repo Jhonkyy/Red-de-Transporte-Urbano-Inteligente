@@ -4,6 +4,14 @@ import heapq
 
 
 def camino_corto(grafo: Grafo, inicio: Estacion, destino: Estacion):
+    """
+    Calcula la ruta más corta entre dos estaciones usando Dijkstra.
+    Devuelve una tupla (camino, tiempo_total).
+    - camino: lista de estaciones desde inicio hasta destino (incluidos).
+    - tiempo_total: suma de los pesos de la ruta óptima.
+    Si no hay camino, retorna (None, float('inf')).
+    """
+    # Inicialización de distancias y predecesores
     distances = {node: float("inf") for node in grafo.obtener_estaciones()}
     anterior = {node: None for node in grafo.obtener_estaciones()}
     distances[inicio] = 0
