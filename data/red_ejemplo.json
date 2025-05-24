@@ -2,10 +2,30 @@
   "estaciones": [
     "Estacion Central",
     "Plaza Norte",
-    "Terminal Sur"
+    "Terminal Sur",
+    "Estacion Este",
+    "Estacion Oeste",
+    "Intercambiador",
+    "Parque Central",
+    "Universidad",
+    "Hospital",
+    "Aeropuerto"
   ],
   "rutas": [
     { "origen": "Estacion Central", "destino": "Plaza Norte", "peso": 8 },
-    { "origen": "Plaza Norte", "destino": "Terminal Sur", "peso": 10 }
+    { "origen": "Plaza Norte", "destino": "Terminal Sur", "peso": 10 },
+    { "origen": "Terminal Sur", "destino": "Estacion Este", "peso": 7 },
+    { "origen": "Estacion Este", "destino": "Estacion Central", "peso": 12 },
+    { "origen": "Estacion Central", "destino": "Estacion Oeste", "peso": 6 },
+    { "origen": "Estacion Oeste", "destino": "Intercambiador", "peso": 5 },
+    { "origen": "Intercambiador", "destino": "Parque Central", "peso": 4 },
+    { "origen": "Parque Central", "destino": "Universidad", "peso": 9 },
+    { "origen": "Universidad", "destino": "Hospital", "peso": 3 },
+    { "origen": "Hospital", "destino": "Aeropuerto", "peso": 15 },
+    { "origen": "Aeropuerto", "destino": "Estacion Central", "peso": 20 },
+    { "origen": "Parque Central", "destino": "Estacion Oeste", "peso": 7 },
+    { "origen": "Estacion Oeste", "destino": "Hospital", "peso": 11 },
+    { "origen": "Intercambiador", "destino": "Aeropuerto", "peso": 13 },
+    { "origen": "Universidad", "destino": "Terminal Sur", "peso": 14 }
   ]
 }
