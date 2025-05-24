@@ -1,36 +1,30 @@
 from src.model.estacion import Estacion
 from src.model.grafo import Grafo
+import heapq
 
 
 def camino_corto(grafo: Grafo, inicio: Estacion, destino: Estacion):
-    visitados = set()
     distances = {node: float("inf") for node in grafo.obtener_estaciones()}
     anterior = {node: None for node in grafo.obtener_estaciones()}
     distances[inicio] = 0
+    visitados = set()
+    heap = [(0, inicio)]
 
-    while len(visitados) != len(grafo.obtener_estaciones()):
-        min_node = None
-        min_dis = float("inf")
-
-        for node in grafo.obtener_estaciones():
-            if node not in visitados and distances[node] < min_dis:
-                min_dis = distances[node]
-                min_node = node
-
-        current = min_node
-        if min_node is None:
+    while heap:
+        distancia_actual, current = heapq.heappop(heap)
+        if current in visitados:
+            continue
+        visitados.add(current)
+        if current == destino:
             break
-
         for vecino in grafo.obtener_vecinos(current):
             peso = vecino.peso
             nodo_vecino = vecino.dest
             tentativa = distances[current] + peso
-
-            if tentativa < distances[nodo_vecino] and nodo_vecino not in visitados:
+            if tentativa < distances[nodo_vecino]:
                 distances[nodo_vecino] = tentativa
                 anterior[nodo_vecino] = current
-
-        visitados.add(current)
+                heapq.heappush(heap, (tentativa, nodo_vecino))
 
     # Reconstruir el camino óptimo
     camino = []
