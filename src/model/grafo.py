@@ -56,3 +56,37 @@ class Grafo:
         except ValueError:
             raise Exception("La ruta no existe en el grafo")
 
+    def cargar_desde_json(self, ruta_archivo):
+        import json
+        from src.model.estacion import Estacion
+        from src.model.ruta import Ruta
+        with open(ruta_archivo, "r", encoding="utf-8") as f:
+            datos = json.load(f)
+        # Limpiar grafo actual
+        self.adjlist.clear()
+        self.nombre_a_estacion.clear()
+        # Agregar estaciones
+        for nombre in datos["estaciones"]:
+            self.añadir_estacion(Estacion(nombre))
+        # Agregar rutas
+        for ruta in datos["rutas"]:
+            origen = self.nombre_a_estacion[ruta["origen"]]
+            destino = self.nombre_a_estacion[ruta["destino"]]
+            peso = ruta["peso"]
+            self.añadir_ruta(Ruta(origen, destino, peso))
+
+    def guardar_a_json(self, ruta_archivo):
+        import json
+        estaciones = [e.nombre for e in self.obtener_estaciones()]
+        rutas = []
+        for estacion in self.obtener_estaciones():
+            for ruta in self.obtener_vecinos(estacion):
+                rutas.append({
+                    "origen": ruta.origen.nombre,
+                    "destino": ruta.dest.nombre,
+                    "peso": ruta.peso
+                })
+        datos = {"estaciones": estaciones, "rutas": rutas}
+        with open(ruta_archivo, "w", encoding="utf-8") as f:
+            json.dump(datos, f, ensure_ascii=False, indent=2)
+
