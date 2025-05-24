@@ -56,3 +56,63 @@ def test_sugerir_conexiones(grafo_simple):
     nombres = [(o.nombre, d.nombre) for o, d, _ in sugerencias]
     assert ("A", "C") in nombres
     assert ("C", "A") in nombres
+
+def test_eliminar_estacion_y_ruta():
+    grafo = Grafo()
+    a = Estacion("A")
+    b = Estacion("B")
+    grafo.añadir_estacion(a)
+    grafo.añadir_estacion(b)
+    grafo.añadir_ruta(Ruta(a, b, 5))
+    assert len(grafo.obtener_vecinos(a)) == 1
+    grafo.eliminar_ruta(Ruta(a, b, 5))
+    assert len(grafo.obtener_vecinos(a)) == 0
+    grafo.eliminar_estacion(a)
+    assert a not in grafo.obtener_estaciones()
+
+def test_cargar_guardar_grafo(tmp_path):
+    grafo = Grafo()
+    a = Estacion("A")
+    b = Estacion("B")
+    grafo.añadir_estacion(a)
+    grafo.añadir_estacion(b)
+    grafo.añadir_ruta(Ruta(a, b, 5))
+    archivo = tmp_path / "grafo.json"
+    grafo.guardar_a_json(str(archivo))
+    grafo2 = Grafo()
+    grafo2.cargar_desde_json(str(archivo))
+    assert len(grafo2.obtener_estaciones()) == 2
+    assert any(ruta.peso == 5 for ruta in grafo2.obtener_vecinos(grafo2.encontrar_estacion("A")))
+
+def test_simular_congestion():
+    grafo = Grafo()
+    a = Estacion("A")
+    b = Estacion("B")
+    grafo.añadir_estacion(a)
+    grafo.añadir_estacion(b)
+    grafo.añadir_ruta(Ruta(a, b, 10))
+    from src.services.actualizacion import simular_congestion
+    rutas_afectadas = simular_congestion(grafo, porcentaje=1.0)
+    assert len(rutas_afectadas) == 1
+    origen, destino, antes, despues = rutas_afectadas[0]
+    assert antes == 10
+    assert despues != 10
+
+def test_grafo_vacio():
+    grafo = Grafo()
+    assert grafo.obtener_estaciones() == []
+    from src.services.ciclos import hay_ciclo
+    from src.services.conectividad import es_fuertemente_conexo
+    assert not hay_ciclo(grafo)
+    assert es_fuertemente_conexo(grafo)  # Un grafo vacío se considera fuertemente conexo
+
+def test_ruta_inexistente():
+    grafo = Grafo()
+    a = Estacion("A")
+    b = Estacion("B")
+    grafo.añadir_estacion(a)
+    grafo.añadir_estacion(b)
+    from src.services.dijkstra import camino_corto
+    camino, tiempo = camino_corto(grafo, a, b)
+    assert camino is None or camino == []
+    assert tiempo == float("inf")
