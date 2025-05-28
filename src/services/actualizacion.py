@@ -51,3 +51,18 @@ def simular_congestion(grafo: Grafo, factor_min=1.2, factor_max=2.0, porcentaje=
         rutas_afectadas.append((ruta.origen.nombre, ruta.dest.nombre, peso_anterior, ruta.peso))
     # Retorna la lista de rutas que fueron afectadas por la simulación de congestión
     return rutas_afectadas
+
+def aplicar_congestion_por_hora(grafo: Grafo, hora: int):
+    """
+    Ajusta los pesos de las rutas según la hora del día.
+    - Hora pico: 6-9 y 17-20 (aumenta pesos 60%)
+    - Hora valle: 0-5 y 21-23 (reduce pesos 20%)
+    - Resto del día: pesos normales
+    """
+    for estacion in grafo.obtener_estaciones():
+        for ruta in grafo.obtener_vecinos(estacion):
+            if 6 <= hora <= 9 or 17 <= hora <= 20:
+                ruta.peso = round(ruta.peso * 1.6, 2)
+            elif 0 <= hora <= 5 or 21 <= hora <= 23:
+                ruta.peso = round(ruta.peso * 0.8, 2)
+            # Si es resto del día, no cambia el peso

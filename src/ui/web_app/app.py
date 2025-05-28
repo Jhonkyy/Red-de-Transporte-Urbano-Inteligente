@@ -1,5 +1,3 @@
-import os
-
 from flask import Flask, Response, render_template_string, request
 import io
 import matplotlib.pyplot as plt
@@ -9,8 +7,86 @@ from src.model.grafo import Grafo
 from src.model.estacion import Estacion
 from src.model.ruta import Ruta
 from src.services.dijkstra import camino_corto
-from src.services.actualizacion import simular_congestion
+from src.services.actualizacion import simular_congestion, aplicar_congestion_por_hora
 import heapq
+
+def k_caminos_mas_rapidos(grafo, origen, destino, k=3):
+    """
+    Devuelve hasta k caminos más cortos (por tiempo) entre origen y destino usando una variante de Yen's algorithm.
+    Cada camino es una lista de estaciones.
+    """
+    import copy
+    from collections import deque
+
+    def dijkstra_path(grafo, inicio, fin):
+        distances = {node: float("inf") for node in grafo.obtener_estaciones()}
+        anterior = {node: None for node in grafo.obtener_estaciones()}
+        distances[inicio] = 0
+        heap = [(0, inicio)]
+        while heap:
+            distancia_actual, current = heapq.heappop(heap)
+            if current == fin:
+                break
+            for vecino in grafo.obtener_vecinos(current):
+                peso = vecino.peso
+                nodo_vecino = vecino.dest
+                tentativa = distances[current] + peso
+                if tentativa < distances[nodo_vecino]:
+                    distances[nodo_vecino] = tentativa
+                    anterior[nodo_vecino] = current
+                    heapq.heappush(heap, (tentativa, nodo_vecino))
+        # reconstruir camino
+        camino = []
+        actual = fin
+        while actual is not None:
+            camino.insert(0, actual)
+            actual = anterior[actual]
+        if distances[fin] == float("inf"):
+            return None, float("inf")
+        return camino, distances[fin]
+
+    caminos = []
+    costos = []
+    primer_camino, primer_costo = dijkstra_path(grafo, origen, destino)
+    if not primer_camino or len(primer_camino) < 2:
+        return []
+    caminos.append(primer_camino)
+    costos.append(primer_costo)
+    candidatos = []
+    for k_actual in range(1, k):
+        for i in range(len(caminos[-1]) - 1):
+            grafo_temp = copy.deepcopy(grafo)
+            spur_node = caminos[-1][i]
+            root_path = caminos[-1][:i+1]
+            # Elimina aristas que ya están en los caminos previos con el mismo root_path
+            for camino_prev in caminos:
+                if len(camino_prev) > i and camino_prev[:i+1] == root_path:
+                    u = camino_prev[i]
+                    v = camino_prev[i+1]
+                    rutas_a_eliminar = [ruta for ruta in grafo_temp.obtener_vecinos(u) if ruta.dest == v]
+                    for ruta in rutas_a_eliminar:
+                        grafo_temp.eliminar_ruta(ruta)
+            # Elimina nodos del root_path excepto spur_node
+            for nodo in root_path[:-1]:
+                grafo_temp.eliminar_estacion(nodo)
+            spur_path, spur_cost = dijkstra_path(grafo_temp, spur_node, destino)
+            if spur_path and len(spur_path) > 1:
+                total_path = root_path[:-1] + spur_path
+                if total_path not in caminos and all([total_path != c for c, _ in candidatos]):
+                    total_cost = 0
+                    for j in range(len(total_path)-1):
+                        for ruta in grafo.obtener_vecinos(total_path[j]):
+                            if ruta.dest == total_path[j+1]:
+                                total_cost += ruta.peso
+                                break
+                    candidatos.append((total_path, total_cost))
+        if not candidatos:
+            break
+        candidatos.sort(key=lambda x: x[1])
+        caminos.append(candidatos[0][0])
+        costos.append(candidatos[0][1])
+        candidatos.pop(0)
+    return list(zip(caminos, costos))
 
 app = Flask(__name__)
 
@@ -19,28 +95,19 @@ grafo_global = None
 
 def cargar_grafo():
     grafo = Grafo()
-
-    # Construir ruta absoluta al archivo JSON
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    ruta_archivo = os.path.join(base_dir, '..', '..', '..', 'data', 'red_ejemplo.json')
-    ruta_archivo = os.path.normpath(ruta_archivo)  # Normaliza para evitar errores en Windows/Linux
-
-    with open(ruta_archivo) as archivo:
+    with open("data/red_ejemplo.json") as archivo:
         datos = json.load(archivo)
-        estaciones = [estacion for estacion in datos["estaciones"]]
+        estaciones = [estacion for estacion in (datos["estaciones"])]
         rutas = [ruta for ruta in datos["rutas"]]
-
     for estacion in estaciones:
         estacion_obj = Estacion(estacion)
         grafo.añadir_estacion(estacion_obj)
-
     for ruta in rutas:
         origen = grafo.nombre_a_estacion[ruta["origen"]]
         destino = grafo.nombre_a_estacion[ruta["destino"]]
         peso = ruta["peso"]
         ruta_obj = Ruta(origen, destino, peso)
         grafo.añadir_ruta(ruta_obj)
-
     return grafo
 
 def get_grafo():
@@ -80,6 +147,10 @@ def index():
     origen_sel = None
     destino_sel = None
     rutas_afectadas = None
+    hora_sel = None
+    mensaje_hora = None
+    caminos_k = []
+    k_sel = 1
 
     if request.method == "POST":
         if "simular_congestion" in request.form:
@@ -87,6 +158,18 @@ def index():
         elif "reset" in request.form:
             reset_grafo()
             grafo = get_grafo()
+        elif "aplicar_hora" in request.form:
+            hora_sel = int(request.form.get("hora", 8))
+            aplicar_congestion_por_hora(grafo, hora_sel)
+            mensaje_hora = f"<b>Congestión aplicada para la hora seleccionada:</b> <span style='color:#16a085'>{hora_sel:02d}:00</span>"
+        elif "mostrar_k_caminos" in request.form:
+            origen_sel = request.form.get("origen")
+            destino_sel = request.form.get("destino")
+            k_sel = int(request.form.get("k", 1))
+            if origen_sel and destino_sel and origen_sel != destino_sel:
+                origen_obj = grafo.encontrar_estacion(origen_sel)
+                destino_obj = grafo.encontrar_estacion(destino_sel)
+                caminos_k = k_caminos_mas_rapidos(grafo, origen_obj, destino_obj, k=k_sel)
         else:
             origen_sel = request.form.get("origen")
             destino_sel = request.form.get("destino")
@@ -237,12 +320,38 @@ def index():
                     <button type="submit">Mostrar camino más corto</button>
                 </form>
                 <form method="post" style="display:inline;">
+                    <input type="hidden" name="origen" value="{{ origen_sel or '' }}">
+                    <input type="hidden" name="destino" value="{{ destino_sel or '' }}">
+                    <label for="k">Ver los</label>
+                    <select name="k" id="k">
+                        {% for i in range(1,4) %}
+                            <option value="{{ i }}" {% if k_sel == i %}selected{% endif %}>{{ i }}</option>
+                        {% endfor %}
+                    </select>
+                    <label>caminos más rápidos</label>
+                    <button type="submit" name="mostrar_k_caminos" value="1" style="background:#8e44ad; color:#fff; margin-left:10px;">Mostrar</button>
+                </form>
+                <form method="post" style="display:inline;">
                     <button type="submit" name="simular_congestion" value="1" style="background:#e67e22; color:#fff; margin-left:20px;">Simular congestión</button>
                 </form>
                 <form method="post" style="display:inline;">
                     <button type="submit" name="reset" value="1" style="background:#c0392b; color:#fff; margin-left:20px;">Restablecer red</button>
                 </form>
+                <form method="post" style="display:inline;">
+                    <label for="hora">Simular hora del día:</label>
+                    <select name="hora" id="hora">
+                        {% for h in range(0,24) %}
+                            <option value="{{ h }}" {% if hora_sel is not none and h == hora_sel %}selected{% endif %}>{{ "%02d:00" % h }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" name="aplicar_hora" value="1" style="background:#16a085; color:#fff; margin-left:10px;">Aplicar congestión por hora</button>
+                </form>
             </div>
+            {% if mensaje_hora %}
+                <div class="shortest-path" style="background:#e0f7fa; border-left:5px solid #16a085;">
+                    {{ mensaje_hora|safe }}
+                </div>
+            {% endif %}
             {% if rutas_afectadas %}
                 <div class="shortest-path" style="background:#fffbe6; border-left:5px solid #e67e22;">
                     <b>Rutas afectadas por congestión:</b>
@@ -251,6 +360,16 @@ def index():
                         <li>Ruta {{ origen }} → {{ destino }}: {{ antes }} min → <b>{{ despues }} min</b></li>
                     {% endfor %}
                     </ul>
+                </div>
+            {% endif %}
+            {% if caminos_k %}
+                <div class="shortest-path" style="background:#f3e6ff; border-left:5px solid #8e44ad;">
+                    <b>Caminos más rápidos:</b>
+                    <ol>
+                    {% for camino, costo in caminos_k %}
+                        <li>{{ camino|map(attribute='nombre')|join(" → ") }} <span style="color:#888;">({{ costo }} min)</span></li>
+                    {% endfor %}
+                    </ol>
                 </div>
             {% endif %}
             {% if camino and tiempo is not none %}
@@ -301,7 +420,11 @@ def index():
         tiempo=tiempo,
         origen_sel=origen_sel,
         destino_sel=destino_sel,
-        rutas_afectadas=rutas_afectadas
+        rutas_afectadas=rutas_afectadas,
+        hora_sel=hora_sel,
+        mensaje_hora=mensaje_hora,
+        caminos_k=caminos_k,
+        k_sel=k_sel
     )
 
 @app.route("/ayuda")
@@ -387,7 +510,7 @@ def ayuda():
 
 @app.route("/grafo.png")
 def mostrar_grafo():
-    grafo = cargar_grafo()
+    grafo = get_grafo()  # Usar el grafo global, no cargar_grafo()
     G = grafo_a_networkx(grafo)
 
     # Posiciones fijas para las estaciones
@@ -409,11 +532,10 @@ def mostrar_grafo():
     destino = request.args.get("destino")
     shortest_edges = []
     if origen and destino and origen != destino and origen in G.nodes and destino in G.nodes:
-        # Reconstruir el grafo y buscar el camino más corto
-        grafo_obj = cargar_grafo()
-        origen_obj = grafo_obj.encontrar_estacion(origen)
-        destino_obj = grafo_obj.encontrar_estacion(destino)
-        camino, _ = camino_corto(grafo_obj, origen_obj, destino_obj)
+        # Usar el grafo global para buscar el camino más corto
+        origen_obj = grafo.encontrar_estacion(origen)
+        destino_obj = grafo.encontrar_estacion(destino)
+        camino, _ = camino_corto(grafo, origen_obj, destino_obj)
         if camino and len(camino) > 1:
             camino_nombres = [e.nombre for e in camino]
             shortest_edges = [(camino_nombres[i], camino_nombres[i+1]) for i in range(len(camino_nombres)-1)]

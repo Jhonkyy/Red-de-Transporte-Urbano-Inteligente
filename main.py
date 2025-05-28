@@ -1,10 +1,6 @@
-import json
+from src.ui.web_app.app import app
 
-from src.model.estacion import Estacion
-from src.model.grafo import Grafo
-from src.model.ruta import Ruta
-
-grafo = Grafo()
-grafo.cargar_desde_json("data/red_ejemplo.json")
+if __name__ == "__main__":
+    app.run(debug=True)
 
 
