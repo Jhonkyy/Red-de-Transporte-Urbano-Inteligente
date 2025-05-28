@@ -8,6 +8,7 @@ from src.model.estacion import Estacion
 from src.model.ruta import Ruta
 from src.services.dijkstra import camino_corto
 from src.services.actualizacion import simular_congestion, aplicar_congestion_por_hora
+from src.services.sugerencias import sugerir_conexiones
 import heapq
 
 def k_caminos_mas_rapidos(grafo, origen, destino, k=3):
@@ -151,6 +152,8 @@ def index():
     mensaje_hora = None
     caminos_k = []
     k_sel = 1
+    sugerencias = []
+    presupuesto_sel = 12
 
     if request.method == "POST":
         if "simular_congestion" in request.form:
@@ -170,6 +173,9 @@ def index():
                 origen_obj = grafo.encontrar_estacion(origen_sel)
                 destino_obj = grafo.encontrar_estacion(destino_sel)
                 caminos_k = k_caminos_mas_rapidos(grafo, origen_obj, destino_obj, k=k_sel)
+        elif "sugerir_conexiones" in request.form:
+            presupuesto_sel = int(request.form.get("presupuesto", 12))
+            sugerencias = sugerir_conexiones(grafo, presupuesto_sel)
         else:
             origen_sel = request.form.get("origen")
             destino_sel = request.form.get("destino")
@@ -346,6 +352,15 @@ def index():
                     </select>
                     <button type="submit" name="aplicar_hora" value="1" style="background:#16a085; color:#fff; margin-left:10px;">Aplicar congestión por hora</button>
                 </form>
+                <form method="post" style="display:inline;">
+                    <label for="presupuesto">Sugerir nuevas conexiones (presupuesto en minutos):</label>
+                    <select name="presupuesto" id="presupuesto">
+                        {% for p in range(6, 31, 2) %}
+                            <option value="{{ p }}" {% if presupuesto_sel == p %}selected{% endif %}>{{ p }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" name="sugerir_conexiones" value="1" style="background:#2980b9; color:#fff; margin-left:10px;">Sugerir conexiones</button>
+                </form>
             </div>
             {% if mensaje_hora %}
                 <div class="shortest-path" style="background:#e0f7fa; border-left:5px solid #16a085;">
@@ -358,6 +373,16 @@ def index():
                     <ul>
                     {% for origen, destino, antes, despues in rutas_afectadas %}
                         <li>Ruta {{ origen }} → {{ destino }}: {{ antes }} min → <b>{{ despues }} min</b></li>
+                    {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+            {% if sugerencias %}
+                <div class="shortest-path" style="background:#eaf6ff; border-left:5px solid #2980b9;">
+                    <b>Sugerencias de nuevas conexiones:</b>
+                    <ul>
+                    {% for origen, destino, tiempo_actual in sugerencias %}
+                        <li>Conectar <b>{{ origen.nombre }}</b> → <b>{{ destino.nombre }}</b> (actual: {{ tiempo_actual }} min)</li>
                     {% endfor %}
                     </ul>
                 </div>
@@ -424,7 +449,9 @@ def index():
         hora_sel=hora_sel,
         mensaje_hora=mensaje_hora,
         caminos_k=caminos_k,
-        k_sel=k_sel
+        k_sel=k_sel,
+        sugerencias=sugerencias,
+        presupuesto_sel=presupuesto_sel
     )
 
 @app.route("/ayuda")
@@ -568,39 +595,3 @@ def mostrar_grafo():
     plt.close()
     buf.seek(0)
     return Response(buf.getvalue(), mimetype='image/png')
-
-def camino_corto(grafo, inicio, destino):
-    distances = {node: float("inf") for node in grafo.obtener_estaciones()}
-    anterior = {node: None for node in grafo.obtener_estaciones()}
-    distances[inicio] = 0
-    visitados = set()
-    heap = [(0, inicio.nombre, inicio)]  # Agrega el nombre como segundo elemento
-
-    while heap:
-        distancia_actual, _, current = heapq.heappop(heap)
-        if current in visitados:
-            continue
-        visitados.add(current)
-        if current == destino:
-            break
-        for vecino in grafo.obtener_vecinos(current):
-            peso = vecino.peso
-            nodo_vecino = vecino.dest
-            tentativa = distances[current] + peso
-            if tentativa < distances[nodo_vecino]:
-                distances[nodo_vecino] = tentativa
-                anterior[nodo_vecino] = current
-                heapq.heappush(heap, (tentativa, nodo_vecino.nombre, nodo_vecino))
-
-    # Reconstruir el camino óptimo
-    camino = []
-    actual = destino
-    while actual is not None:
-        camino.insert(0, actual)
-        actual = anterior[actual]
-    if distances[destino] == float("inf"):
-        return None, float("inf")  # No hay camino
-    return camino, distances[destino]
-
-if __name__ == "__main__":
-    app.run(debug=True)

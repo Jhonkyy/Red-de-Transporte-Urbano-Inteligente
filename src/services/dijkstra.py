@@ -16,10 +16,11 @@ def camino_corto(grafo: Grafo, inicio: Estacion, destino: Estacion):
     anterior = {node: None for node in grafo.obtener_estaciones()}
     distances[inicio] = 0
     visitados = set()
-    heap = [(0, inicio)]
+    # El heap ahora incluye el nombre como "tie-breaker"
+    heap = [(0, inicio.nombre, inicio)]
 
     while heap:
-        distancia_actual, current = heapq.heappop(heap)
+        distancia_actual, _, current = heapq.heappop(heap)
         if current in visitados:
             continue
         visitados.add(current)
@@ -32,7 +33,7 @@ def camino_corto(grafo: Grafo, inicio: Estacion, destino: Estacion):
             if tentativa < distances[nodo_vecino]:
                 distances[nodo_vecino] = tentativa
                 anterior[nodo_vecino] = current
-                heapq.heappush(heap, (tentativa, nodo_vecino))
+                heapq.heappush(heap, (tentativa, nodo_vecino.nombre, nodo_vecino))
 
     # Reconstruir el camino óptimo
     camino = []
