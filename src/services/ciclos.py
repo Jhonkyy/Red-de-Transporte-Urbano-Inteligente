@@ -1,14 +1,12 @@
+"""
+Módulo que implementa la detección de ciclos en la red de transporte urbano.
+"""
+
 from src.model.grafo import Grafo
 
 def hay_ciclo(grafo: Grafo) -> bool:
     """
     Detecta ciclos en el grafo dirigido usando DFS (Depth-First Search).
-    
-    Esta funcion recorre el grafo a partir de cada estacion no visitada,
-    y utiliza un conjunto para llevar el seguimiento de las estaciones en
-    el camino actual de la busqueda. Si se encuentra una estacion que ya
-    esta en el camino actual, significa que hay un ciclo.
-
     Retorna True si existe al menos un ciclo, False en caso contrario.
     """
     visitados = set()  # Conjunto de estaciones ya visitadas

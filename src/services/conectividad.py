@@ -1,3 +1,7 @@
+"""
+Módulo que implementa la verificación de conectividad fuerte en la red de transporte urbano.
+"""
+
 from src.model.grafo import Grafo
 
 def _alcanzables_desde(grafo: Grafo, inicio):

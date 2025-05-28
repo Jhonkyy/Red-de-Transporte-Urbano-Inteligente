@@ -1,3 +1,7 @@
+"""
+Módulo que implementa la actualización dinámica de pesos en la red de transporte urbano.
+"""
+
 from src.model.grafo import Grafo
 import random
 

@@ -1,3 +1,7 @@
+"""
+Controlador para operaciones sobre el grafo de la red de transporte urbano.
+"""
+
 from src.model.grafo import Grafo
 from src.model.estacion import Estacion
 from src.model.ruta import Ruta

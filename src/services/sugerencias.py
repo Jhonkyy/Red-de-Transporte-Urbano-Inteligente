@@ -1,3 +1,7 @@
+"""
+Módulo que implementa la sugerencia de nuevas conexiones en la red de transporte urbano.
+"""
+
 from src.model.grafo import Grafo
 from src.services.dijkstra import camino_corto
 from src.model.ruta import Ruta

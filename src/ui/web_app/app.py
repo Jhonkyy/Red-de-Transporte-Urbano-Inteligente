@@ -1,3 +1,10 @@
+"""
+Módulo principal de la interfaz web para la Red de Transporte Urbano Inteligente.
+Permite visualizar la red, calcular caminos más cortos, simular congestión, aplicar congestión por hora,
+ver los k caminos más rápidos y sugerir nuevas conexiones.
+"""
+
+# Importaciones de librerías y módulos necesarios
 from flask import Flask, Response, render_template_string, request
 import io
 import matplotlib.pyplot as plt
@@ -15,11 +22,21 @@ def k_caminos_mas_rapidos(grafo, origen, destino, k=3):
     """
     Devuelve hasta k caminos más cortos (por tiempo) entre origen y destino usando una variante de Yen's algorithm.
     Cada camino es una lista de estaciones.
+
+    Explicación:
+    - Para cada camino encontrado previamente, se exploran "desviaciones" (spur paths) en cada nodo intermedio.
+    - 'spur_node' es el nodo donde se fuerza la desviación respecto a los caminos anteriores.
+    - 'root_path' es la parte inicial del camino hasta 'spur_node' (inclusive).
+    - Se eliminan temporalmente aristas y nodos para forzar nuevas rutas alternativas desde 'spur_node' a destino.
+    - Así se generan candidatos a nuevos caminos, que luego se ordenan por costo.
     """
     import copy
     from collections import deque
 
     def dijkstra_path(grafo, inicio, fin):
+        """
+        Algoritmo de Dijkstra para obtener el camino más corto y su costo.
+        """
         distances = {node: float("inf") for node in grafo.obtener_estaciones()}
         anterior = {node: None for node in grafo.obtener_estaciones()}
         distances[inicio] = 0
@@ -48,13 +65,16 @@ def k_caminos_mas_rapidos(grafo, origen, destino, k=3):
 
     caminos = []
     costos = []
+    # Primer camino más corto
     primer_camino, primer_costo = dijkstra_path(grafo, origen, destino)
     if not primer_camino or len(primer_camino) < 2:
         return []
     caminos.append(primer_camino)
     costos.append(primer_costo)
     candidatos = []
+    # Búsqueda de los siguientes k-1 caminos más cortos
     for k_actual in range(1, k):
+        # Para cada nodo intermedio del último camino encontrado
         for i in range(len(caminos[-1]) - 1):
             grafo_temp = copy.deepcopy(grafo)
             spur_node = caminos[-1][i]
@@ -89,20 +109,27 @@ def k_caminos_mas_rapidos(grafo, origen, destino, k=3):
         candidatos.pop(0)
     return list(zip(caminos, costos))
 
+# Inicializa la aplicación Flask
 app = Flask(__name__)
 
 # --- GRAFO GLOBAL PARA MANTENER EL ESTADO ENTRE PETICIONES ---
 grafo_global = None
 
 def cargar_grafo():
+    """
+    Carga el grafo desde el archivo JSON de ejemplo.
+    """
     grafo = Grafo()
+    # Lee el archivo de datos de la red
     with open("data/red_ejemplo.json") as archivo:
         datos = json.load(archivo)
         estaciones = [estacion for estacion in (datos["estaciones"])]
         rutas = [ruta for ruta in datos["rutas"]]
+    # Agrega estaciones
     for estacion in estaciones:
         estacion_obj = Estacion(estacion)
         grafo.añadir_estacion(estacion_obj)
+    # Agrega rutas
     for ruta in rutas:
         origen = grafo.nombre_a_estacion[ruta["origen"]]
         destino = grafo.nombre_a_estacion[ruta["destino"]]
@@ -112,19 +139,30 @@ def cargar_grafo():
     return grafo
 
 def get_grafo():
+    """
+    Devuelve el grafo global, cargándolo si es necesario.
+    """
     global grafo_global
     if grafo_global is None:
         grafo_global = cargar_grafo()
     return grafo_global
 
 def reset_grafo():
+    """
+    Restablece el grafo global a su estado original desde el archivo.
+    """
     global grafo_global
     grafo_global = cargar_grafo()
 
 def grafo_a_networkx(grafo: Grafo):
+    """
+    Convierte el grafo propio a un grafo de networkx para visualización.
+    """
     G = nx.DiGraph()
+    # Agrega nodos
     for estacion in grafo.obtener_estaciones():
         G.add_node(estacion.nombre)
+    # Agrega aristas
     for estacion in grafo.obtener_estaciones():
         for ruta in grafo.obtener_vecinos(estacion):
             G.add_edge(ruta.origen.nombre, ruta.dest.nombre, weight=ruta.peso)
@@ -132,9 +170,16 @@ def grafo_a_networkx(grafo: Grafo):
 
 @app.route("/", methods=["GET", "POST"])
 def index():
+    """
+    Vista principal de la aplicación web.
+    Permite seleccionar estaciones, calcular caminos, simular congestión, aplicar congestión por hora,
+    ver los k caminos más rápidos y sugerir nuevas conexiones.
+    """
+    # Inicialización de variables y obtención de datos del grafo
     grafo = get_grafo()
     estaciones = [e.nombre for e in grafo.obtener_estaciones()]
     rutas = []
+    # Construye la lista de rutas para mostrar en la tabla
     for estacion in grafo.obtener_estaciones():
         for ruta in grafo.obtener_vecinos(estacion):
             rutas.append({
@@ -143,6 +188,7 @@ def index():
                 "peso": ruta.peso
             })
 
+    # Variables para la interfaz
     camino = []
     tiempo = None
     origen_sel = None
@@ -155,17 +201,22 @@ def index():
     sugerencias = []
     presupuesto_sel = 12
 
+    # Manejo de formularios POST
     if request.method == "POST":
         if "simular_congestion" in request.form:
+            # Simula congestión aleatoria
             rutas_afectadas = simular_congestion(grafo, porcentaje=0.5)
         elif "reset" in request.form:
+            # Restablece el grafo original
             reset_grafo()
             grafo = get_grafo()
         elif "aplicar_hora" in request.form:
+            # Aplica congestión según la hora seleccionada
             hora_sel = int(request.form.get("hora", 8))
             aplicar_congestion_por_hora(grafo, hora_sel)
             mensaje_hora = f"<b>Congestión aplicada para la hora seleccionada:</b> <span style='color:#16a085'>{hora_sel:02d}:00</span>"
         elif "mostrar_k_caminos" in request.form:
+            # Muestra los k caminos más rápidos
             origen_sel = request.form.get("origen")
             destino_sel = request.form.get("destino")
             k_sel = int(request.form.get("k", 1))
@@ -174,9 +225,11 @@ def index():
                 destino_obj = grafo.encontrar_estacion(destino_sel)
                 caminos_k = k_caminos_mas_rapidos(grafo, origen_obj, destino_obj, k=k_sel)
         elif "sugerir_conexiones" in request.form:
+            # Sugerir nuevas conexiones según presupuesto
             presupuesto_sel = int(request.form.get("presupuesto", 12))
             sugerencias = sugerir_conexiones(grafo, presupuesto_sel)
         else:
+            # Camino más corto estándar
             origen_sel = request.form.get("origen")
             destino_sel = request.form.get("destino")
             if origen_sel and destino_sel and origen_sel != destino_sel:
@@ -187,6 +240,7 @@ def index():
                     camino = []
                     tiempo = None
 
+    # HTML de la interfaz (verás los comentarios en el código fuente)
     html = """
     <html>
     <head>
@@ -436,7 +490,9 @@ def index():
     </body>
     </html>
     """
+    # Convierte el camino a nombres para mostrarlo
     camino_nombres = [e.nombre for e in camino] if camino else []
+    # Renderiza la plantilla HTML con las variables
     return render_template_string(
         html,
         estaciones=estaciones,
@@ -456,6 +512,10 @@ def index():
 
 @app.route("/ayuda")
 def ayuda():
+    """
+    Vista de ayuda de la aplicación web.
+    Muestra instrucciones y leyenda de colores.
+    """
     html = """
     <html>
     <head>
@@ -537,6 +597,9 @@ def ayuda():
 
 @app.route("/grafo.png")
 def mostrar_grafo():
+    """
+    Genera y retorna la imagen PNG del grafo actual, resaltando el camino más corto si corresponde.
+    """
     grafo = get_grafo()  # Usar el grafo global, no cargar_grafo()
     G = grafo_a_networkx(grafo)
 
@@ -567,9 +630,10 @@ def mostrar_grafo():
             camino_nombres = [e.nombre for e in camino]
             shortest_edges = [(camino_nombres[i], camino_nombres[i+1]) for i in range(len(camino_nombres)-1)]
 
+    # Dibuja el grafo usando networkx y matplotlib
     plt.figure(figsize=(12, 9))
 
-    # Obtener pesos y asignar colores
+    # Obtener pesos y asignar colores a las aristas
     edges = G.edges(data=True)
     edge_colors = []
     for u, v, data in edges:
@@ -584,14 +648,18 @@ def mostrar_grafo():
             else:
                 edge_colors.append('red')
 
+    # Dibuja nodos y aristas
     nx.draw(
         G, pos, with_labels=True, node_color='lightblue', node_size=2000,
         font_size=10, arrowsize=20, edge_color=edge_colors, width=2
     )
+    # Dibuja etiquetas de los pesos
     labels = nx.get_edge_attributes(G, 'weight')
     nx.draw_networkx_edge_labels(G, pos, edge_labels=labels)
+    # Guarda la imagen en un buffer
     buf = io.BytesIO()
     plt.savefig(buf, format="png")
     plt.close()
     buf.seek(0)
+    # Devuelve la imagen como respuesta HTTP
     return Response(buf.getvalue(), mimetype='image/png')

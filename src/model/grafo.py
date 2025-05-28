@@ -1,3 +1,7 @@
+"""
+Módulo que define la clase Grafo para la red de transporte urbano.
+"""
+
 from src.model.estacion import Estacion
 from src.model.ruta import Ruta
 
@@ -9,6 +13,9 @@ class Grafo:
     """
 
     def __init__(self):
+        """
+        Inicializa el grafo con listas de adyacencia y mapeo de nombres.
+        """
         # Lista de adyacencia: Estacion -> lista de Rutas salientes
         self.adjlist: dict[Estacion, list[Ruta]] = {}
         # Mapeo rápido de nombre a objeto Estacion

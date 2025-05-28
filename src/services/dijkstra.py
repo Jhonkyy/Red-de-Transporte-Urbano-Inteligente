@@ -1,3 +1,7 @@
+"""
+Módulo que implementa el algoritmo de Dijkstra para la red de transporte urbano.
+"""
+
 from src.model.estacion import Estacion
 from src.model.grafo import Grafo
 import heapq
