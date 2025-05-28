@@ -1,3 +1,5 @@
+import os
+
 from flask import Flask, Response, render_template_string, request
 import io
 import matplotlib.pyplot as plt
@@ -17,19 +19,28 @@ grafo_global = None
 
 def cargar_grafo():
     grafo = Grafo()
-    with open("data/red_ejemplo.json") as archivo:
+
+    # Construir ruta absoluta al archivo JSON
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    ruta_archivo = os.path.join(base_dir, '..', '..', '..', 'data', 'red_ejemplo.json')
+    ruta_archivo = os.path.normpath(ruta_archivo)  # Normaliza para evitar errores en Windows/Linux
+
+    with open(ruta_archivo) as archivo:
         datos = json.load(archivo)
-        estaciones = [estacion for estacion in (datos["estaciones"])]
+        estaciones = [estacion for estacion in datos["estaciones"]]
         rutas = [ruta for ruta in datos["rutas"]]
+
     for estacion in estaciones:
         estacion_obj = Estacion(estacion)
         grafo.añadir_estacion(estacion_obj)
+
     for ruta in rutas:
         origen = grafo.nombre_a_estacion[ruta["origen"]]
         destino = grafo.nombre_a_estacion[ruta["destino"]]
         peso = ruta["peso"]
         ruta_obj = Ruta(origen, destino, peso)
         grafo.añadir_ruta(ruta_obj)
+
     return grafo
 
 def get_grafo():
